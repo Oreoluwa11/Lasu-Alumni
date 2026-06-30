@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import ProtectedRoute from "@/components/auth/protected-route";
 import { useAuth } from "@/components/auth/auth-provider";
 import { createClient } from "@/lib/supabase/client";
+import { ensureConversationForRequest } from "@/lib/chat";
 
 type PersonStub = {
   id: string;
@@ -78,70 +79,87 @@ export default function MentorshipPage() {
   const [actionId, setActionId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (authLoading || !user) return;
+    if (authLoading) return;
+    if (!user) {
+      const timeoutId = window.setTimeout(() => {
+        setLoading(false);
+      }, 0);
+      return () => window.clearTimeout(timeoutId);
+    }
+
     const supabase = createClient();
 
     (async () => {
-      const [sentResult, receivedResult] = await Promise.all([
-        supabase
-          .from("mentorship_requests")
-          .select("id, student_id, alumni_id, status, created_at")
-          .eq("student_id", user.id)
-          .order("created_at", { ascending: false }),
-        supabase
-          .from("mentorship_requests")
-          .select("id, student_id, alumni_id, status, created_at")
-          .eq("alumni_id", user.id)
-          .order("created_at", { ascending: false }),
-      ]);
+      try {
+        // Verify session is active
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (!authUser) {
+          setFetchError("Session expired. Please log in again.");
+          setLoading(false);
+          return;
+        }
 
-      const reqError = sentResult.error ?? receivedResult.error;
-      if (reqError) {
-        setFetchError(reqError.message);
+        const uid = authUser.id;
+
+        const [sentResult, receivedResult] = await Promise.all([
+          supabase
+            .from("mentorship_requests")
+            .select("id, student_id, alumni_id, status, created_at")
+            .eq("student_id", uid)
+            .order("created_at", { ascending: false }),
+          supabase
+            .from("mentorship_requests")
+            .select("id, student_id, alumni_id, status, created_at")
+            .eq("alumni_id", uid)
+            .order("created_at", { ascending: false }),
+        ]);
+
+        const reqError = sentResult.error ?? receivedResult.error;
+        if (reqError) {
+          setFetchError(reqError.message);
+          setLoading(false);
+          return;
+        }
+
+        const seen = new Set<string>();
+        const rows = [...(sentResult.data ?? []), ...(receivedResult.data ?? [])]
+          .filter((r) => { if (seen.has(r.id)) return false; seen.add(r.id); return true; })
+          .sort((a, b) => b.created_at.localeCompare(a.created_at));
+
+        if (rows.length === 0) { setLoading(false); return; }
+
+        const profileIds = [...new Set(rows.flatMap((r) => [r.student_id, r.alumni_id]))];
+        const { data: profiles, error: profileError } = await supabase
+          .from("profiles")
+          .select("id, full_name, profile_image, department, faculty, graduation_year")
+          .in("id", profileIds);
+
+        if (profileError) {
+          setFetchError(profileError.message);
+          setLoading(false);
+          return;
+        }
+
+        const profileMap = Object.fromEntries(
+          (profiles ?? []).map((p) => [p.id, p as RawPerson])
+        );
+
+        setRequests(
+          rows.map((r) => ({
+            id: r.id,
+            studentId: r.student_id,
+            alumniId: r.alumni_id,
+            status: r.status,
+            createdAt: r.created_at,
+            sender: mapPerson(profileMap[r.student_id] ?? null, r.student_id),
+            recipient: mapPerson(profileMap[r.alumni_id] ?? null, r.alumni_id),
+          }))
+        );
         setLoading(false);
-        return;
-      }
-
-      const seen = new Set<string>();
-      const rows = [...(sentResult.data ?? []), ...(receivedResult.data ?? [])].filter((r) => {
-        if (seen.has(r.id)) return false;
-        seen.add(r.id);
-        return true;
-      }).sort((a, b) => b.created_at.localeCompare(a.created_at));
-
-      if (rows.length === 0) {
+      } catch (err) {
+        setFetchError(err instanceof Error ? err.message : "Unexpected error loading requests.");
         setLoading(false);
-        return;
       }
-
-      const profileIds = [...new Set(rows.flatMap((r) => [r.student_id, r.alumni_id]))];
-      const { data: profiles, error: profileError } = await supabase
-        .from("profiles")
-        .select("id, full_name, profile_image, department, faculty, graduation_year")
-        .in("id", profileIds);
-
-      if (profileError) {
-        setFetchError(profileError.message);
-        setLoading(false);
-        return;
-      }
-
-      const profileMap = Object.fromEntries(
-        (profiles ?? []).map((p) => [p.id, p as RawPerson])
-      );
-
-      setRequests(
-        rows.map((r) => ({
-          id: r.id,
-          studentId: r.student_id,
-          alumniId: r.alumni_id,
-          status: r.status,
-          createdAt: r.created_at,
-          sender: mapPerson(profileMap[r.student_id] ?? null, r.student_id),
-          recipient: mapPerson(profileMap[r.alumni_id] ?? null, r.alumni_id),
-        }))
-      );
-      setLoading(false);
     })();
   }, [user, authLoading]);
 
@@ -150,28 +168,36 @@ export default function MentorshipPage() {
     setActionId(req.id);
     const supabase = createClient();
 
-    await supabase.from("mentorship_requests").update({ status: "accepted" }).eq("id", req.id);
+    try {
+      await supabase.from("mentorship_requests").update({ status: "accepted" }).eq("id", req.id);
 
-    const { data: conv } = await supabase
-      .from("conversations")
-      .upsert(
-        { student_id: req.studentId, alumni_id: req.alumniId, mentorship_request_id: req.id },
-        { onConflict: "student_id,alumni_id" }
-      )
-      .select("id")
-      .single();
+      const conversationId = await ensureConversationForRequest(supabase, {
+        studentId: req.studentId,
+        alumniId: req.alumniId,
+        requestId: req.id,
+      });
 
-    setRequests((prev) => prev.map((r) => (r.id === req.id ? { ...r, status: "accepted" } : r)));
-    setActionId(null);
-    if (conv) router.push(`/chat/${conv.id}`);
+      setRequests((prev) => prev.map((r) => (r.id === req.id ? { ...r, status: "accepted" } : r)));
+      if (conversationId) router.push(`/chat/${conversationId}`);
+    } catch (err) {
+      setFetchError(err instanceof Error ? err.message : "Unable to accept mentorship request.");
+    } finally {
+      setActionId(null);
+    }
   };
 
   const handleReject = async (reqId: string) => {
     setActionId(reqId);
     const supabase = createClient();
-    await supabase.from("mentorship_requests").update({ status: "rejected" }).eq("id", reqId);
-    setRequests((prev) => prev.map((r) => (r.id === reqId ? { ...r, status: "rejected" } : r)));
-    setActionId(null);
+
+    try {
+      await supabase.from("mentorship_requests").update({ status: "rejected" }).eq("id", reqId);
+      setRequests((prev) => prev.map((r) => (r.id === reqId ? { ...r, status: "rejected" } : r)));
+    } catch (err) {
+      setFetchError(err instanceof Error ? err.message : "Unable to reject mentorship request.");
+    } finally {
+      setActionId(null);
+    }
   };
 
   return (

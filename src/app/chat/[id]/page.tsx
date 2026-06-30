@@ -6,6 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import ProtectedRoute from "@/components/auth/protected-route";
 import { useAuth } from "@/components/auth/auth-provider";
 import { createClient } from "@/lib/supabase/client";
+import { loadConversationMessages, sendConversationMessage, subscribeToConversationMessages } from "@/lib/chat";
 import type { Message } from "@/types";
 
 type Participant = {
@@ -54,17 +55,26 @@ export default function ChatRoomPage() {
     if (!user || !conversationId) return;
     const supabase = createClient();
 
-    supabase
-      .from("conversations")
-      .select(
-        `id, student_id, alumni_id,
-         student:profiles!student_id(id, full_name, profile_image),
-         alumni:profiles!alumni_id(id, full_name, profile_image)`
-      )
-      .eq("id", conversationId)
-      .single()
-      .then(({ data }) => {
-        if (!data) { router.push("/chat"); return; }
+    let isActive = true;
+
+    const loadConversation = async () => {
+      try {
+        const { data } = await supabase
+          .from("conversations")
+          .select(
+            `id, student_id, alumni_id,
+             student:profiles!student_id(id, full_name, profile_image),
+             alumni:profiles!alumni_id(id, full_name, profile_image)`
+          )
+          .eq("id", conversationId)
+          .single();
+
+        if (!isActive) return;
+        if (!data) {
+          router.push("/chat");
+          return;
+        }
+
         const conv = data as unknown as {
           id: string;
           student_id: string;
@@ -74,65 +84,37 @@ export default function ChatRoomPage() {
         };
         const other = user.id === conv.student_id ? conv.alumni : conv.student;
         setOtherUser(other ?? null);
-      });
+      } catch {
+        if (isActive) router.push("/chat");
+      }
+    };
 
-    supabase
-      .from("messages")
-      .select("id, conversation_id, sender_id, content, created_at")
-      .eq("conversation_id", conversationId)
-      .order("created_at", { ascending: true })
-      .then(({ data }) => {
-        if (data) {
-          setMessages(
-            data.map((m) => ({
-              id: m.id,
-              conversationId: m.conversation_id,
-              senderId: m.sender_id,
-              content: m.content,
-              createdAt: m.created_at,
-            }))
-          );
+    const loadMessages = async () => {
+      try {
+        const nextMessages = await loadConversationMessages(supabase, conversationId);
+        if (isActive) {
+          setMessages(nextMessages);
+          setLoading(false);
         }
-        setLoading(false);
-      });
+      } catch {
+        if (isActive) {
+          setMessages([]);
+          setLoading(false);
+        }
+      }
+    };
 
-    const channel = supabase
-      .channel(`chat:${conversationId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "messages",
-          filter: `conversation_id=eq.${conversationId}`,
-        },
-        (payload) => {
-          const m = payload.new as {
-            id: string;
-            conversation_id: string;
-            sender_id: string;
-            content: string;
-            created_at: string;
-          };
-          setMessages((prev) => {
-            if (prev.some((msg) => msg.id === m.id)) return prev;
-            return [
-              ...prev,
-              {
-                id: m.id,
-                conversationId: m.conversation_id,
-                senderId: m.sender_id,
-                content: m.content,
-                createdAt: m.created_at,
-              },
-            ];
-          });
-        }
-      )
-      .subscribe();
+    void loadConversation();
+    void loadMessages();
+
+    const unsubscribe = subscribeToConversationMessages(supabase, conversationId, (message) => {
+      if (!isActive) return;
+      setMessages((prev) => (prev.some((item) => item.id === message.id) ? prev : [...prev, message]));
+    });
 
     return () => {
-      supabase.removeChannel(channel);
+      isActive = false;
+      unsubscribe();
     };
   }, [user, conversationId, router]);
 
@@ -143,12 +125,15 @@ export default function ChatRoomPage() {
     setSending(true);
     setInput("");
     const supabase = createClient();
-    await supabase.from("messages").insert({
-      conversation_id: conversationId,
-      sender_id: user.id,
-      content: text,
-    });
-    setSending(false);
+    try {
+      await sendConversationMessage(supabase, {
+        conversationId,
+        senderId: user.id,
+        content: text,
+      });
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -222,19 +207,19 @@ export default function ChatRoomPage() {
 
             <form
               onSubmit={handleSend}
-              className="flex items-center gap-3 border-t border-slate-800 px-5 py-4"
+              className="flex flex-col gap-3 border-t border-slate-800 px-5 py-4 sm:flex-row sm:items-center"
             >
               <input
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Type a message…"
-                className="flex-1 rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-slate-100 outline-none transition focus:border-sky-500"
+                className="w-full flex-1 rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-slate-100 outline-none transition focus:border-sky-500"
               />
               <button
                 type="submit"
                 disabled={!input.trim() || sending}
-                className="rounded-2xl bg-sky-500 p-3 text-slate-950 transition hover:bg-sky-400 disabled:opacity-40"
+                className="rounded-2xl bg-sky-500 p-3 text-slate-950 transition hover:bg-sky-400 disabled:opacity-40 sm:self-auto"
               >
                 <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />

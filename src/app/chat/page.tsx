@@ -6,6 +6,9 @@ import { useEffect, useState } from "react";
 import ProtectedRoute from "@/components/auth/protected-route";
 import { useAuth } from "@/components/auth/auth-provider";
 import { createClient } from "@/lib/supabase/client";
+import { ensureConversationForRequest } from "@/lib/chat";
+import { MdOutlineArrowRightAlt } from "react-icons/md";
+
 
 type Participant = {
   id: string;
@@ -28,6 +31,10 @@ type ConversationItem = {
   lastMessage: string;
   lastMessageAt: string;
 };
+
+function pairKey(left: string, right: string) {
+  return [left, right].sort().join(":");
+}
 
 function Avatar({ name, image }: { name: string; image?: string | null }) {
   const initials = name
@@ -58,20 +65,65 @@ export default function ChatListPage() {
     if (!user) return;
     const supabase = createClient();
 
-    supabase
-      .from("conversations")
-      .select(
-        `id, student_id, alumni_id, created_at,
-         student:profiles!student_id(id, full_name, profile_image),
-         alumni:profiles!alumni_id(id, full_name, profile_image)`
-      )
-      .or(`student_id.eq.${user.id},alumni_id.eq.${user.id}`)
-      .order("created_at", { ascending: false })
-      .then(async ({ data }) => {
-        if (!data) { setLoading(false); return; }
+    let isActive = true;
 
-        const rows = data as unknown as ConvRow[];
-        const ids = rows.map((r) => r.id);
+    const loadConversations = async () => {
+      try {
+        const { data: existingRows, error: conversationsError } = await supabase
+          .from("conversations")
+          .select(
+            `id, student_id, alumni_id, created_at,
+             student:profiles!student_id(id, full_name, profile_image),
+             alumni:profiles!alumni_id(id, full_name, profile_image)`
+          )
+          .or(`student_id.eq.${user.id},alumni_id.eq.${user.id}`)
+          .order("created_at", { ascending: false });
+
+        if (conversationsError) throw conversationsError;
+
+        const rows = (existingRows ?? []) as unknown as ConvRow[];
+        const seenPairs = new Set(rows.map((r) => pairKey(r.student_id, r.alumni_id)));
+
+        const { data: acceptedRequests, error: requestsError } = await supabase
+          .from("mentorship_requests")
+          .select("id, student_id, alumni_id, created_at")
+          .eq("status", "accepted")
+          .or(`student_id.eq.${user.id},alumni_id.eq.${user.id}`)
+          .order("created_at", { ascending: false });
+
+        if (requestsError) throw requestsError;
+
+        const extraRows: ConvRow[] = [];
+        for (const request of acceptedRequests ?? []) {
+          const pair = pairKey(request.student_id, request.alumni_id);
+          if (seenPairs.has(pair)) continue;
+
+          const conversationId = await ensureConversationForRequest(supabase, {
+            studentId: request.student_id,
+            alumniId: request.alumni_id,
+            requestId: request.id,
+          });
+
+          if (!conversationId) continue;
+
+          const { data: createdRow, error: createdError } = await supabase
+            .from("conversations")
+            .select(
+              `id, student_id, alumni_id, created_at,
+               student:profiles!student_id(id, full_name, profile_image),
+               alumni:profiles!alumni_id(id, full_name, profile_image)`
+            )
+            .eq("id", conversationId)
+            .maybeSingle();
+
+          if (!createdError && createdRow) {
+            extraRows.push(createdRow as unknown as ConvRow);
+            seenPairs.add(pair);
+          }
+        }
+
+        const allRows = [...rows, ...extraRows];
+        const ids = allRows.map((r) => r.id);
 
         const { data: lastMsgs } = await supabase
           .from("messages")
@@ -86,8 +138,10 @@ export default function ChatListPage() {
           }
         }
 
+        if (!isActive) return;
+
         setConversations(
-          rows.map((r) => {
+          allRows.map((r) => {
             const other = user.id === r.student_id ? r.alumni : r.student;
             const last = lastByConv.get(r.id);
             return {
@@ -103,18 +157,37 @@ export default function ChatListPage() {
           })
         );
         setLoading(false);
-      });
+      } catch {
+        if (isActive) {
+          setConversations([]);
+          setLoading(false);
+        }
+      }
+    };
+
+    void loadConversations();
+
+    return () => {
+      isActive = false;
+    };
   }, [user]);
 
   return (
     <ProtectedRoute>
       <main className="min-h-screen bg-slate-950 text-slate-100 px-4 py-6 sm:px-6 sm:py-8 lg:px-10 lg:py-10">
         <div className="mx-auto max-w-2xl space-y-6">
-          <section className="rounded-3xl border border-slate-800 bg-slate-900/80 p-6 shadow-2xl shadow-slate-950/20 backdrop-blur-xl">
-            <h1 className="text-2xl font-semibold">Messages</h1>
-            <p className="mt-1 text-sm text-slate-400">
-              Your mentorship conversations.
-            </p>
+          <section className="rounded-3xl flex justify-between border border-slate-800 bg-slate-900/80 p-6 shadow-2xl shadow-slate-950/20 backdrop-blur-xl">
+            <div>
+              <h1 className="text-2xl font-semibold">Messages</h1>
+              <p className="mt-1 text-sm text-slate-400">
+                Your mentorship conversations.
+              </p>
+            </div>
+            <div>
+              <Link href="/dashboard/mentorship" className="text-sky-400 hover:text-sky-300 flex items-center gap-2">
+                Mentorship Requests <MdOutlineArrowRightAlt />
+              </Link>
+            </div>
           </section>
 
           {loading && (
