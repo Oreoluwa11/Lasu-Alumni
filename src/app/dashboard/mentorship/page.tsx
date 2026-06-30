@@ -76,7 +76,8 @@ export default function MentorshipPage() {
   useEffect(() => {
     if (!user) return;
     const supabase = createClient();
-    const column = user.role === "alumni" ? "alumni_id" : "student_id";
+    const isAlumni = user.role === "alumni" || user.status?.toLowerCase() === "alumni";
+    const column = isAlumni ? "alumni_id" : "student_id";
 
     supabase
       .from("mentorship_requests")
@@ -163,7 +164,7 @@ export default function MentorshipPage() {
               Mentorship requests
             </h1>
             <p className="mt-2 text-sm text-slate-400">
-              {user?.role === "alumni"
+              {user?.role === "alumni" || user?.status?.toLowerCase() === "alumni"
                 ? "Review and manage incoming mentorship requests from students."
                 : "Track the status of your mentorship requests."}
             </p>
@@ -178,7 +179,7 @@ export default function MentorshipPage() {
           {!loading && requests.length === 0 && (
             <div className="rounded-3xl border border-slate-800 bg-slate-900/80 p-10 text-center">
               <p className="text-slate-400">No mentorship requests yet.</p>
-              {user?.role === "student" && (
+              {user?.role !== "alumni" && user?.status?.toLowerCase() !== "alumni" && (
                 <Link
                   href="/alumni"
                   className="mt-4 inline-block rounded-2xl bg-sky-500 px-5 py-2 text-sm font-semibold text-slate-950 transition hover:bg-sky-400"
@@ -229,7 +230,7 @@ export default function MentorshipPage() {
                       {req.status}
                     </span>
 
-                    {user?.role === "alumni" && req.status === "pending" && (
+                    {(user?.role === "alumni" || user?.status?.toLowerCase() === "alumni") && req.status === "pending" && (
                       <>
                         <button
                           type="button"

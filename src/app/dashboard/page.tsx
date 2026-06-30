@@ -37,7 +37,8 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!user) return;
     const supabase = createClient();
-    const column = user.role === "alumni" ? "alumni_id" : "student_id";
+    const isAlumni = user.role === "alumni" || user.status?.toLowerCase() === "alumni";
+    const column = isAlumni ? "alumni_id" : "student_id";
     supabase
       .from("mentorship_requests")
       .select("id", { count: "exact" })
