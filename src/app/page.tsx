@@ -62,7 +62,7 @@ export default function Home() {
         <div></div>
       </section>
 
-      <section className="bg-[#242E58] py-20 px-6 sm:px-10">
+      <section className="bg-[#242E58] py-18 px-6 sm:px-10">
         <div>
           <p className="text-2xl font-bold text-white text-center">THE MISSION OF LAGOS STATE UNIVERSITY</p>
           <hr className="mt-2 w-70 text-white font-bold mx-auto"/>
@@ -72,11 +72,11 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="bg-[#242E58] py-20 px-6 sm:px-10">
+      <section className="bg-[#242E58] py-5 px-6 sm:px-10">
         <div>
           <p className="text-2xl font-bold text-white text-center">OUR VISION</p>
           <hr className="mt-2 w-70 text-white font-bold mx-auto"/>
-          <p className="mt-8 text-base leading-7 text-white text-center sm:text-lg">
+          <p className="mt-8 text-base leading-7 text-white text-center sm:text-lg mb-10">
             To be a leading institution of higher learning that nurtures intellectual growth, promotes ethical values, and prepares students for leadership roles in society.
           </p>
         </div>
