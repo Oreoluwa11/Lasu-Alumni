@@ -89,7 +89,7 @@ create policy "Users can read news"
 on news_articles for select to authenticated using (true);
 
 -- Mentorship request policies
-create policy "Students can create mentorship requests"
+create policy "Users can create mentorship requests"
 on mentorship_requests for insert to authenticated
 with check (auth.uid() = student_id);
 
@@ -97,7 +97,7 @@ create policy "Users can read their mentorship requests"
 on mentorship_requests for select to authenticated
 using (auth.uid() = student_id or auth.uid() = alumni_id);
 
-create policy "Alumni can update request status"
+create policy "Recipients can update request status"
 on mentorship_requests for update to authenticated
 using (auth.uid() = alumni_id) with check (auth.uid() = alumni_id);
 

@@ -86,7 +86,7 @@ export default async function AlumniProfilePage({
                   </div>
                 </div>
                 <div className="sm:flex-shrink-0 sm:w-52">
-                  <RequestMentorshipButton alumniId={id} />
+                  <RequestMentorshipButton recipientId={id} />
                 </div>
               </div>
 

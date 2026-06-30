@@ -8,10 +8,10 @@ import { useAuth } from "@/components/auth/auth-provider";
 type RequestStatus = "idle" | "loading" | "pending" | "accepted" | "rejected" | "own";
 
 interface Props {
-  alumniId: string;
+  recipientId: string;
 }
 
-export default function RequestMentorshipButton({ alumniId }: Props) {
+export default function RequestMentorshipButton({ recipientId }: Props) {
   const { user } = useAuth();
   const router = useRouter();
   const [status, setStatus] = useState<RequestStatus>("loading");
@@ -22,14 +22,14 @@ export default function RequestMentorshipButton({ alumniId }: Props) {
 
   useEffect(() => {
     if (!user) return;
-    if (user.id === alumniId) { setStatus("own"); return; }
+    if (user.id === recipientId) { setStatus("own"); return; }
 
     const supabase = createClient();
     supabase
       .from("mentorship_requests")
-      .select("status")
+      .select("status, id")
       .eq("student_id", user.id)
-      .eq("alumni_id", alumniId)
+      .eq("alumni_id", recipientId)
       .maybeSingle()
       .then(async ({ data }) => {
         if (!data) { setStatus("idle"); return; }
@@ -38,13 +38,12 @@ export default function RequestMentorshipButton({ alumniId }: Props) {
           const { data: conv } = await supabase
             .from("conversations")
             .select("id")
-            .eq("student_id", user.id)
-            .eq("alumni_id", alumniId)
+            .or(`and(student_id.eq.${user.id},alumni_id.eq.${recipientId}),and(student_id.eq.${recipientId},alumni_id.eq.${user.id})`)
             .maybeSingle();
           if (conv) setConversationId(conv.id);
         }
       });
-  }, [user, alumniId]);
+  }, [user, recipientId]);
 
   if (status === "own") {
     return null;
@@ -57,7 +56,7 @@ export default function RequestMentorshipButton({ alumniId }: Props) {
     const supabase = createClient();
     const { error } = await supabase
       .from("mentorship_requests")
-      .insert({ student_id: user.id, alumni_id: alumniId });
+      .insert({ student_id: user.id, alumni_id: recipientId });
     if (error) {
       setErrorMsg(error.message);
     } else {

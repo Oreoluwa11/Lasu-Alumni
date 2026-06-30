@@ -37,12 +37,10 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!user) return;
     const supabase = createClient();
-    const isAlumni = user.role === "alumni" || user.status?.toLowerCase() === "alumni";
-    const column = isAlumni ? "alumni_id" : "student_id";
     supabase
       .from("mentorship_requests")
       .select("id", { count: "exact" })
-      .eq(column, user.id)
+      .eq("alumni_id", user.id)
       .eq("status", "pending")
       .then(({ count }) => setPendingCount(count ?? 0));
   }, [user]);
