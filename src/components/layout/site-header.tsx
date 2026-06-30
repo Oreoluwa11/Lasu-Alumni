@@ -34,13 +34,13 @@ export default function SiteHeader() {
   return (
     <header className={headerClassName}>
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-4">
-        <Link href="/" className="flex items-center gap-3 text-base md:text-xl font-semibold text-[#242E58]">
+        <Link href="/" className="flex items-center gap-3 text-base md:text-xl font-semibold ">
           <Image 
             src="/Logo.png" 
             alt="LASU logo" 
             width={45} 
             height={45} 
-            className="w-10 h-10 md:w-16 md:h-16"
+            className="w-10 h-10 md:w-13 md:h-13 object-contain"
           />
           LASU Alumni Connect
         </Link>
@@ -62,24 +62,24 @@ export default function SiteHeader() {
         </button>
 
         <nav className={`${menuOpen ? "flex" : "hidden"} w-full flex-col gap-3 rounded-3xl border border-slate-200 bg-white p-4 shadow-lg md:flex md:w-auto md:flex-row md:items-center md:justify-end md:gap-4 md:border-0 md:bg-transparent md:p-0 md:shadow-none`}>
-          <Link href="/" className="block text-[#242E58] md:text-xl rounded-2xl px-3 py-2 transition hover:text-sky-600 md:px-0 md:py-0" onClick={() => setMenuOpen(false)}>
+          <Link href="/" className="block text-base md:text-xl rounded-2xl px-3 py-2 transition hover:text-sky-600 md:px-0 md:py-0" onClick={() => setMenuOpen(false)}>
             Home
           </Link>
-          <Link href="/dashboard" className="block text-[#242E58] md:text-xl rounded-2xl px-3 py-2 transition hover:text-sky-600 md:px-0 md:py-0" onClick={() => setMenuOpen(false)}>
+          <Link href="/dashboard" className="block text-base md:text-xl rounded-2xl px-3 py-2 transition hover:text-sky-600 md:px-0 md:py-0" onClick={() => setMenuOpen(false)}>
             Dashboard
           </Link>
-          <Link href="/alumni" className="block text-[#242E58] md:text-xl rounded-2xl px-3 py-2 transition hover:text-sky-600 md:px-0 md:py-0" onClick={() => setMenuOpen(false)}>
+          <Link href="/alumni" className="block text-base md:text-xl rounded-2xl px-3 py-2 transition hover:text-sky-600 md:px-0 md:py-0" onClick={() => setMenuOpen(false)}>
             Alumni
           </Link>
-          <Link href="/news" className="block text-[#242E58] md:text-xl rounded-2xl px-3 py-2 transition hover:text-sky-600 md:px-0 md:py-0" onClick={() => setMenuOpen(false)}>
+          <Link href="/news" className="block text-base md:text-xl rounded-2xl px-3 py-2 transition hover:text-sky-600 md:px-0 md:py-0" onClick={() => setMenuOpen(false)}>
             News
           </Link>
           {user && (
-            <Link href="/chat" className="block text-[#242E58] md:text-xl rounded-2xl px-3 py-2 transition hover:text-sky-600 md:px-0 md:py-0" onClick={() => setMenuOpen(false)}>
+            <Link href="/chat" className="block text-base md:text-xl rounded-2xl px-3 py-2 transition hover:text-sky-600 md:px-0 md:py-0" onClick={() => setMenuOpen(false)}>
               Messages
             </Link>
           )}
-          <Link href="/profile" className="block text-[#242E58] md:text-xl rounded-2xl px-3 py-2 transition hover:text-sky-600 md:px-0 md:py-0" onClick={() => setMenuOpen(false)}>
+          <Link href="/profile" className="block text-base md:text-xl rounded-2xl px-3 py-2 transition hover:text-sky-600 md:px-0 md:py-0" onClick={() => setMenuOpen(false)}>
             Profile
           </Link>
           {user ? (

@@ -36,15 +36,6 @@ type RawPerson = {
   graduation_year: number | null;
 } | null;
 
-type RawRow = {
-  id: string;
-  student_id: string;
-  alumni_id: string;
-  status: "pending" | "accepted" | "rejected";
-  created_at: string;
-  sender: RawPerson;
-  recipient: RawPerson;
-};
 
 function mapPerson(p: RawPerson, fallbackId: string): PersonStub {
   return {
@@ -79,43 +70,80 @@ const statusBadge: Record<string, string> = {
 };
 
 export default function MentorshipPage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [requests, setRequests] = useState<Request[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [actionId, setActionId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user) return;
+    if (authLoading || !user) return;
     const supabase = createClient();
 
-    supabase
-      .from("mentorship_requests")
-      .select(
-        `id, student_id, alumni_id, status, created_at,
-         sender:profiles!student_id(id, full_name, profile_image, department, faculty, graduation_year),
-         recipient:profiles!alumni_id(id, full_name, profile_image, department, faculty, graduation_year)`
-      )
-      .or(`student_id.eq.${user.id},alumni_id.eq.${user.id}`)
-      .order("created_at", { ascending: false })
-      .then(({ data, error }) => {
-        if (data) {
-          setRequests(
-            (data as unknown as RawRow[]).map((r) => ({
-              id: r.id,
-              studentId: r.student_id,
-              alumniId: r.alumni_id,
-              status: r.status,
-              createdAt: r.created_at,
-              sender: mapPerson(r.sender, r.student_id),
-              recipient: mapPerson(r.recipient, r.alumni_id),
-            }))
-          );
-        }
-        if (error) console.error("mentorship fetch:", error.message);
+    (async () => {
+      const [sentResult, receivedResult] = await Promise.all([
+        supabase
+          .from("mentorship_requests")
+          .select("id, student_id, alumni_id, status, created_at")
+          .eq("student_id", user.id)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("mentorship_requests")
+          .select("id, student_id, alumni_id, status, created_at")
+          .eq("alumni_id", user.id)
+          .order("created_at", { ascending: false }),
+      ]);
+
+      const reqError = sentResult.error ?? receivedResult.error;
+      if (reqError) {
+        setFetchError(reqError.message);
         setLoading(false);
-      });
-  }, [user]);
+        return;
+      }
+
+      const seen = new Set<string>();
+      const rows = [...(sentResult.data ?? []), ...(receivedResult.data ?? [])].filter((r) => {
+        if (seen.has(r.id)) return false;
+        seen.add(r.id);
+        return true;
+      }).sort((a, b) => b.created_at.localeCompare(a.created_at));
+
+      if (rows.length === 0) {
+        setLoading(false);
+        return;
+      }
+
+      const profileIds = [...new Set(rows.flatMap((r) => [r.student_id, r.alumni_id]))];
+      const { data: profiles, error: profileError } = await supabase
+        .from("profiles")
+        .select("id, full_name, profile_image, department, faculty, graduation_year")
+        .in("id", profileIds);
+
+      if (profileError) {
+        setFetchError(profileError.message);
+        setLoading(false);
+        return;
+      }
+
+      const profileMap = Object.fromEntries(
+        (profiles ?? []).map((p) => [p.id, p as RawPerson])
+      );
+
+      setRequests(
+        rows.map((r) => ({
+          id: r.id,
+          studentId: r.student_id,
+          alumniId: r.alumni_id,
+          status: r.status,
+          createdAt: r.created_at,
+          sender: mapPerson(profileMap[r.student_id] ?? null, r.student_id),
+          recipient: mapPerson(profileMap[r.alumni_id] ?? null, r.alumni_id),
+        }))
+      );
+      setLoading(false);
+    })();
+  }, [user, authLoading]);
 
   const handleAccept = async (req: Request) => {
     if (!user) return;
@@ -161,7 +189,14 @@ export default function MentorshipPage() {
             <p className="py-16 text-center text-sm text-slate-500">Loading…</p>
           )}
 
-          {!loading && requests.length === 0 && (
+          {!loading && fetchError && (
+            <div className="rounded-3xl border border-rose-500/30 bg-rose-500/10 p-6 text-sm text-rose-400">
+              <p className="font-semibold">Could not load requests</p>
+              <p className="mt-1 text-rose-500">{fetchError}</p>
+            </div>
+          )}
+
+          {!loading && !fetchError && requests.length === 0 && (
             <div className="rounded-3xl border border-slate-800 bg-slate-900/80 p-10 text-center">
               <p className="text-slate-400">No mentorship requests yet.</p>
               <Link
