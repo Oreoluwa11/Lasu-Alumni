@@ -1,6 +1,18 @@
-import type { AlumniProfile } from "@/types";
+type LegacyAlumniProfile = {
+  id: string;
+  fullName: string;
+  occupation: string;
+  company: string;
+  graduationYear: number;
+  faculty: string;
+  department: string;
+  industry: string;
+  location: string;
+  bio: string;
+  skills: string[];
+};
 
-export const alumniProfiles: AlumniProfile[] = [
+export const alumniProfiles: LegacyAlumniProfile[] = [
   {
     id: "1",
     fullName: "Aisha Bello",

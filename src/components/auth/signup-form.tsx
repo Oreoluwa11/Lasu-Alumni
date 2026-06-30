@@ -3,6 +3,14 @@
 import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { signup } from "@/app/auth/actions";
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from "@/components/ui/combobox"
 
 export default function SignupForm() {
   const router = useRouter();
@@ -19,34 +27,36 @@ export default function SignupForm() {
     }
   }, [router, state.message]);
 
+  const inputClass = "mt-2 w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-slate-100 outline-none transition focus:border-sky-500";
+
   return (
-    <form action={formAction} className="space-y-5">
+    <form action={formAction} className="space-y-2">
       <label className="block">
-        <span className="text-sm text-slate-300">Full name</span>
+        <span className="text-sm md:text-lg text-black">Full name</span>
         <input
           type="text"
           name="fullName"
           value={fullName}
           onChange={(event) => setFullName(event.target.value)}
           className="mt-2 w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-slate-100 outline-none transition focus:border-sky-500"
-          placeholder="Your full name"
+          placeholder="Full name"
           required
         />
       </label>
       <label className="block">
-        <span className="text-sm text-slate-300">Email</span>
+        <span className="text-sm md:text-lg text-black">Email</span>
         <input
           type="email"
           name="email"
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           className="mt-2 w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-slate-100 outline-none transition focus:border-sky-500"
-          placeholder="you@example.com"
+          placeholder="lasualumni@gmail.com"
           required
         />
       </label>
       <label className="block">
-        <span className="text-sm text-slate-300">Password</span>
+        <span className="text-sm md:text-lg text-black">Password</span>
         <input
           type="password"
           name="password"
@@ -58,7 +68,7 @@ export default function SignupForm() {
       </label>
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="block">
-          <span className="text-sm text-slate-300">Faculty</span>
+          <span className="text-sm md:text-lg text-black">Faculty</span>
           <input
             type="text"
             name="faculty"
@@ -69,7 +79,7 @@ export default function SignupForm() {
           />
         </label>
         <label className="block">
-          <span className="text-sm text-slate-300">Department</span>
+          <span className="text-sm md:text-lg text-black">Department</span>
           <input
             type="text"
             name="department"
@@ -80,22 +90,32 @@ export default function SignupForm() {
           />
         </label>
       </div>
-      <label className="block">
-        <span className="text-sm text-slate-300">Graduation year</span>
-        <input
-          type="number"
-          name="graduationYear"
-          value={graduationYear}
-          onChange={(event) => setGraduationYear(Number(event.target.value))}
-          className="mt-2 w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-slate-100 outline-none transition focus:border-sky-500"
-        />
-      </label>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <label className="block">
+          <span className="text-sm md:text-lg text-black">Graduation year</span>
+          <input
+            type="number"
+            name="graduationYear"
+            value={graduationYear}
+            onChange={(event) => setGraduationYear(Number(event.target.value))}
+            className="mt-2 w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-slate-100 outline-none transition focus:border-sky-500"
+          />
+        </label>
+        <label className="block">
+          <span className="text-sm md:text-lg text-black">Status</span>
+          <select name="status" required className={inputClass}>
+            <option value="" disabled>Select status</option>
+            <option value="Student">Student</option>
+            <option value="Alumni">Alumni</option>
+          </select>
+        </label>
+      </div>
       {state.error && <p className="text-sm text-rose-400">{state.error}</p>}
       {state.message && <p className="text-sm text-emerald-400">{state.message}</p>}
       <button
         type="submit"
         disabled={isPending}
-        className="w-full rounded-2xl bg-sky-500 px-5 py-3 font-semibold text-slate-950 transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-60"
+        className="w-full mt-3 rounded-2xl bg-slate-950 px-5 py-3 font-semibold text-white transition hover:bg-sky-900 hover:cursor-pointer disabled:opacity-60"
       >
         {isPending ? "Creating account..." : "Create account"}
       </button>

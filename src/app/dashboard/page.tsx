@@ -4,8 +4,16 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import ProtectedRoute from "@/components/auth/protected-route";
 import { useAuth } from "@/components/auth/auth-provider";
-import { api } from "@/services/mockApi";
-import type { MentorshipRequest, User } from "@/types";
+import { createClient } from "@/lib/supabase/client";
+import type { User } from "@/types";
+import { MdOutlineArrowRightAlt } from "react-icons/md";
+
+type NewsItem = {
+  id: string;
+  title: string;
+  slug: string;
+  summary: string | null;
+};
 
 function profileCompletion(user: User): number {
   const checks = [
@@ -23,16 +31,32 @@ function profileCompletion(user: User): number {
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const [requests, setRequests] = useState<MentorshipRequest[]>([]);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [news, setNews] = useState<NewsItem[]>([]);
 
   useEffect(() => {
-    if (user) {
-      api.getMentorshipRequests(user.id).then(setRequests);
-    }
+    if (!user) return;
+    const supabase = createClient();
+    const column = user.role === "alumni" ? "alumni_id" : "student_id";
+    supabase
+      .from("mentorship_requests")
+      .select("id", { count: "exact" })
+      .eq(column, user.id)
+      .eq("status", "pending")
+      .then(({ count }) => setPendingCount(count ?? 0));
   }, [user]);
 
+  useEffect(() => {
+    const supabase = createClient();
+    supabase
+      .from("news")
+      .select("id,title,slug,summary")
+      .order("published_at", { ascending: false })
+      .limit(3)
+      .then(({ data }) => setNews((data as NewsItem[]) ?? []));
+  }, []);
+
   const completion = useMemo(() => (user ? profileCompletion(user) : 0), [user]);
-  const pendingCount = requests.filter((r) => r.status === "pending").length;
 
   return (
     <ProtectedRoute>
@@ -50,14 +74,18 @@ export default function DashboardPage() {
               </p>
             </div>
             <div className="grid gap-4 sm:grid-cols-2 lg:w-auto">
-              <div className="rounded-3xl bg-slate-900/80 p-3 md:p-5 text-center border border-slate-800">
-                <p className="text-sm text-slate-500">Profile Completion</p>
-                <p className="mt-2 text-xl md:text-3xl font-semibold text-sky-400">{completion}%</p>
-              </div>
-              <div className="rounded-3xl bg-slate-900/80 p-5 text-center border border-slate-800">
-                <p className="text-sm text-slate-500">Mentorship Requests</p>
-                <p className="mt-2 text-xl md:text-3xl font-semibold text-emerald-400">{pendingCount} pending</p>
-              </div>
+              <Link href="/profile">
+                <div className="rounded-3xl bg-slate-900/80 p-3 md:p-5 text-center border border-slate-800">
+                  <p className="text-sm text-slate-500">Profile Completion</p>
+                  <p className="mt-2 text-xl md:text-3xl font-semibold text-sky-400">{completion}%</p>
+                </div>
+              </Link>
+              <Link href="/dashboard/mentorship">
+                <div className="rounded-3xl bg-slate-900/80 p-5 text-center border border-slate-800">
+                  <p className="text-sm text-slate-500">Mentorship Requests</p>
+                  <p className="mt-2 text-xl md:text-3xl font-semibold text-emerald-400">{pendingCount} pending</p>
+                </div>
+              </Link>
             </div>
           </div>
         </section>
@@ -69,8 +97,8 @@ export default function DashboardPage() {
                 <h2 className="text-xl font-semibold">Suggested mentors</h2>
                 <p className="mt-2 text-slate-400">Alumni who match your career interests.</p>
               </div>
-              <Link href="/alumni" className="text-sky-400 hover:text-sky-300">
-                View all
+              <Link href="/alumni" className="text-sky-400 hover:text-sky-300 flex items-center gap-2">
+                View all <MdOutlineArrowRightAlt />
               </Link>
             </div>
             <div className="mt-8 grid gap-4">
@@ -87,16 +115,29 @@ export default function DashboardPage() {
 
           <div className="space-y-6">
             <div className="rounded-3xl border border-slate-800 bg-slate-950/90 p-8 shadow-2xl backdrop-blur-xl">
-              <h2 className="text-xl font-semibold">Recent news</h2>
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold">Recent news</h2>
+                <Link href="/news" className="text-sm text-sky-400 hover:text-sky-300 flex items-center gap-2">
+                  View all <MdOutlineArrowRightAlt />
+                </Link>
+              </div>
               <ul className="mt-6 space-y-4">
-                <li className="rounded-3xl bg-slate-900/80 p-4 border border-slate-800 shadow-slate-950/20">
-                  <p className="font-semibold">Campus mentorship fair launches this month</p>
-                  <p className="mt-2 text-sm text-slate-400">Learn more about connecting with mentors from every faculty.</p>
-                </li>
-                <li className="rounded-3xl bg-slate-900/80 p-4 border border-slate-800 shadow-slate-950/20">
-                  <p className="font-semibold">Alumni networking night open registration</p>
-                  <p className="mt-2 text-sm text-slate-400">Reserve your seat to meet leaders across finance and tech.</p>
-                </li>
+                {news.length === 0 && (
+                  <li className="text-sm text-slate-500">No news yet.</li>
+                )}
+                {news.map((article) => (
+                  <li key={article.id}>
+                    <Link
+                      href={`/news/${article.slug}`}
+                      className="block rounded-3xl bg-slate-900/80 p-4 border border-slate-800 transition hover:border-sky-500"
+                    >
+                      <p className="font-semibold">{article.title}</p>
+                      {article.summary && (
+                        <p className="mt-2 text-sm text-slate-400 line-clamp-2">{article.summary}</p>
+                      )}
+                    </Link>
+                  </li>
+                ))}
               </ul>
             </div>
             <div className="rounded-3xl border border-slate-800 bg-slate-950/90 p-8 shadow-2xl backdrop-blur-xl">

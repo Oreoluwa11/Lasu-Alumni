@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import type { SupabaseClient, User as SupabaseUser } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import type { User } from "@/types";
@@ -22,6 +22,7 @@ type ProfileRow = {
   full_name: string | null;
   email: string | null;
   role: "student" | "alumni" | null;
+  status: string | null;
   faculty: string | null;
   department: string | null;
   graduation_year: number | null;
@@ -39,6 +40,7 @@ function mapProfile(profile: ProfileRow): User {
     fullName: profile.full_name ?? "LASU member",
     email: profile.email ?? "",
     role: profile.role ?? "student",
+    status: profile.status ?? undefined,
     faculty: profile.faculty ?? "",
     department: profile.department ?? "",
     graduationYear: profile.graduation_year ?? new Date().getFullYear(),
@@ -62,38 +64,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const loadProfile = useCallback(async (userId?: string, authUser?: SupabaseUser | null) => {
-    if (!userId) {
-      setUser(null);
-      return;
-    }
-
-    if (!supabase) {
+  const loadProfile = useCallback(async (userId?: string) => {
+    if (!userId || !supabase) {
       setUser(null);
       return;
     }
 
     const { data } = await supabase.from("profiles").select("*").eq("id", userId).single();
-
-    if (data) {
-      setUser(mapProfile(data as ProfileRow));
-    } else if (authUser) {
-      const meta = authUser.user_metadata ?? {};
-      setUser({
-        id: userId,
-        fullName: meta.full_name ?? "LASU member",
-        email: authUser.email ?? "",
-        role: "student",
-        faculty: meta.faculty ?? "",
-        department: meta.department ?? "",
-        graduationYear: meta.graduation_year ?? new Date().getFullYear(),
-        location: "",
-        bio: "",
-        skills: [],
-      });
-    } else {
-      setUser(null);
-    }
+    setUser(data ? mapProfile(data as ProfileRow) : null);
   }, [supabase]);
 
   useEffect(() => {
@@ -110,7 +88,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } = await supabase.auth.getUser();
 
       if (mounted) {
-        await loadProfile(authUser?.id, authUser);
+        await loadProfile(authUser?.id);
         setLoading(false);
       }
     };
@@ -124,7 +102,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     const subscription = supabase.auth.onAuthStateChange((_event, session) => {
-      loadProfile(session?.user.id, session?.user);
+      loadProfile(session?.user.id);
     }).data.subscription;
 
     return () => {
@@ -143,7 +121,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const {
         data: { user: authUser },
       } = await supabase.auth.getUser();
-      await loadProfile(authUser?.id, authUser);
+      await loadProfile(authUser?.id);
       return true;
     }
 
@@ -184,8 +162,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const { error } = await supabase
       .from("profiles")
-      .update({
+      .upsert({
+        id: user.id,
         full_name: nextUser.fullName,
+        email: nextUser.email,
+        role: nextUser.role,
         faculty: nextUser.faculty,
         department: nextUser.department,
         graduation_year: nextUser.graduationYear,
@@ -195,8 +176,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         bio: nextUser.bio,
         skills: nextUser.skills,
         profile_image: nextUser.profileImage,
-      })
-      .eq("id", user.id);
+      });
 
     if (error) {
       return false;

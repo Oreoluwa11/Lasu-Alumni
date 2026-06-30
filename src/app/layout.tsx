@@ -30,7 +30,7 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="bg-slate-50 text-slate-950 selection:bg-sky-200 selection:text-slate-950">
+      <body className="bg-slate-950 text-slate-100 selection:bg-sky-800 selection:text-slate-100">
         <AuthProvider>
           <SiteHeader />
           {children}

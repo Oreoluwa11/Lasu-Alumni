@@ -17,13 +17,21 @@ export async function login(_: AuthState, formData: FormData): Promise<AuthState
   const email = String(formData.get("email") ?? "");
   const password = String(formData.get("password") ?? "");
 
-  const { error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
     return { error: error.message };
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("id", data.user.id)
+    .single();
+
+  if (!profile) {
+    await supabase.auth.signOut();
+    return { error: "User not found. Please sign up." };
   }
 
   return { message: "success" };
@@ -37,6 +45,8 @@ export async function signup(_: AuthState, formData: FormData): Promise<AuthStat
   const faculty = String(formData.get("faculty") ?? "");
   const department = String(formData.get("department") ?? "");
   const graduationYear = Number(formData.get("graduationYear") ?? new Date().getFullYear());
+  const status = String(formData.get("status") ?? "");
+  const role = status.toLowerCase() === "alumni" ? "alumni" : "student";
 
   const { data, error } = await supabase.auth.signUp({
     email,
@@ -48,6 +58,8 @@ export async function signup(_: AuthState, formData: FormData): Promise<AuthStat
         faculty,
         department,
         graduation_year: graduationYear,
+        status,
+        role,
       },
     },
   });
@@ -56,25 +68,27 @@ export async function signup(_: AuthState, formData: FormData): Promise<AuthStat
     return { error: error.message };
   }
 
-  // if (data.user) {
-  //   const { error: profileError } = await supabase.from("profiles").upsert({
-  //     id: data.user.id,
-  //     full_name: fullName,
-  //     email,
-  //     role: "student",
-  //     faculty,
-  //     department,
-  //     graduation_year: graduationYear,
-  //     location: "Lagos",
-  //     bio: "",
-  //     skills: [],
-  //   });
+  // If no email confirmation is required, session is available — create profile now
+  if (data.session && data.user) {
+    const { error: profileError } = await supabase.from("profiles").upsert({
+      id: data.user.id,
+      full_name: fullName,
+      email,
+      role,
+      status,
+      faculty,
+      department,
+      graduation_year: graduationYear,
+      location: "",
+      bio: "",
+      skills: [],
+    });
 
-  //   if (profileError) {
-  //     return { error: profileError.message };
-  //   }
-  // }
-  
+    if (profileError) {
+      return { error: profileError.message };
+    }
+  }
+
   if (!data.session) {
     return { message: "Check your email to confirm your account." };
   }

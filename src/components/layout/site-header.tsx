@@ -22,7 +22,7 @@ export default function SiteHeader() {
   const headerClassName = [
     "sticky top-0 z-50 transition-all duration-300",
     scrolled
-      ? "bg-transparent backdrop-blur-xl shadow-sm shadow-slate-900/5"
+      ? "bg-transparent backdrop-blur-xl shadow-sm shadow-slate-900/5 text-white"
       : "bg-transparent",
   ].join(" ");
 
@@ -62,19 +62,24 @@ export default function SiteHeader() {
         </button>
 
         <nav className={`${menuOpen ? "flex" : "hidden"} w-full flex-col gap-3 rounded-3xl border border-slate-200 bg-white p-4 shadow-lg md:flex md:w-auto md:flex-row md:items-center md:justify-end md:gap-4 md:border-0 md:bg-transparent md:p-0 md:shadow-none`}>
-          <Link href="/" className="block rounded-2xl px-3 py-2 transition hover:text-sky-600 md:px-0 md:py-0" onClick={() => setMenuOpen(false)}>
+          <Link href="/" className="block text-[#242E58] md:text-xl rounded-2xl px-3 py-2 transition hover:text-sky-600 md:px-0 md:py-0" onClick={() => setMenuOpen(false)}>
             Home
           </Link>
-          <Link href="/dashboard" className="block rounded-2xl px-3 py-2 transition hover:text-sky-600 md:px-0 md:py-0" onClick={() => setMenuOpen(false)}>
+          <Link href="/dashboard" className="block text-[#242E58] md:text-xl rounded-2xl px-3 py-2 transition hover:text-sky-600 md:px-0 md:py-0" onClick={() => setMenuOpen(false)}>
             Dashboard
           </Link>
-          <Link href="/alumni" className="block rounded-2xl px-3 py-2 transition hover:text-sky-600 md:px-0 md:py-0" onClick={() => setMenuOpen(false)}>
+          <Link href="/alumni" className="block text-[#242E58] md:text-xl rounded-2xl px-3 py-2 transition hover:text-sky-600 md:px-0 md:py-0" onClick={() => setMenuOpen(false)}>
             Alumni
           </Link>
-          <Link href="/news" className="block rounded-2xl px-3 py-2 transition hover:text-sky-600 md:px-0 md:py-0" onClick={() => setMenuOpen(false)}>
+          <Link href="/news" className="block text-[#242E58] md:text-xl rounded-2xl px-3 py-2 transition hover:text-sky-600 md:px-0 md:py-0" onClick={() => setMenuOpen(false)}>
             News
           </Link>
-          <Link href="/profile" className="block rounded-2xl px-3 py-2 transition hover:text-sky-600 md:px-0 md:py-0" onClick={() => setMenuOpen(false)}>
+          {user && (
+            <Link href="/chat" className="block text-[#242E58] md:text-xl rounded-2xl px-3 py-2 transition hover:text-sky-600 md:px-0 md:py-0" onClick={() => setMenuOpen(false)}>
+              Messages
+            </Link>
+          )}
+          <Link href="/profile" className="block text-[#242E58] md:text-xl rounded-2xl px-3 py-2 transition hover:text-sky-600 md:px-0 md:py-0" onClick={() => setMenuOpen(false)}>
             Profile
           </Link>
           {user ? (
@@ -84,14 +89,16 @@ export default function SiteHeader() {
                 setMenuOpen(false);
                 handleLogout();
               }}
-              className="w-full rounded-2xl border border-slate-200 bg-[#242E58] px-4 py-2 text-sm font-semibold text-white transition hover:bg-sky-700 md:w-auto md:px-4 md:py-2 md:border-0 md:bg-transparent md:text-sky-600 md:hover:bg-transparent"
+              className="w-full rounded-xl border border-slate-400 bg-sky-700 hover:bg-[#242E58] md:w-auto md:text-base"
             >
-              Logout
+              <p className="px-4 py-2 md:px-4 md:py-2 md:border-0 text-sm md:text-lg ">
+                Logout
+              </p>
             </button>
           ) : (
             <Link
               href="/auth/login"
-              className="block w-full rounded-2xl border border-slate-200 bg-[#242E58] px-4 py-2 text-sm font-semibold text-white transition hover:bg-sky-700 md:w-auto md:px-4 md:py-2"
+              className="block w-full rounded-2xl border border-slate-200 bg-[#242E58] px-4 py-2 text-sm md:text-lg font-semibold text-white transition hover:bg-sky-700 md:w-auto md:px-4 md:py-2"
               onClick={() => setMenuOpen(false)}
             >
               Sign in

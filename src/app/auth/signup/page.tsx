@@ -10,7 +10,7 @@ export default function SignupPage() {
           <div>
             <p className="text-sm uppercase tracking-[0.35em] text-sky-600">Create account</p>
             <h1 className="mt-4 text-3xl font-semibold text-slate-950">Join the mentorship network</h1>
-            <p className="mt-2 text-slate-500">Sign up as a student to connect with alumni mentors.</p>
+            <p className="mt-2 text-slate-500">Sign up as a student or alumni to connect with alumni mentors.</p>
           </div>
           <SignupForm />
           <p className="text-center text-sm text-slate-400">

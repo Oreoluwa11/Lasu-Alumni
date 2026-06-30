@@ -1,37 +1,27 @@
 'use client';
 
-import { useState } from "react";
+import { useActionState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { login } from "@/app/auth/actions";
 import { useAuth } from "@/components/auth/auth-provider";
 
 export default function LoginForm() {
-  const { login } = useAuth();
   const router = useRouter();
-  const [isPending, setIsPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { user, loading } = useAuth();
+  const [state, formAction, isPending] = useActionState(login, {});
 
-  const handleSubmit = async (event: any) => {
-    event.preventDefault();
-    const formData = new FormData(event.currentTarget);
-    const email = (formData.get("email") as string) ?? "";
-    const password = (formData.get("password") as string) ?? "";
+  useEffect(() => {
+    if (!loading && user) router.replace("/dashboard");
+  }, [user, loading, router]);
 
-    setError(null);
-    setIsPending(true);
-
-    const success = await login(email, password);
-    setIsPending(false);
-
-    if (success) {
-      router.push("/dashboard");
-      return;
+  useEffect(() => {
+    if (state.message === "success") {
+      window.location.replace("/dashboard");
     }
-
-    setError("Unable to sign in. Please check your email and password.");
-  };
+  }, [state.message]);
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
+    <form action={formAction} className="space-y-5">
       <label className="block">
         <span className="text-sm text-slate-300">Email</span>
         <input
@@ -52,7 +42,7 @@ export default function LoginForm() {
           required
         />
       </label>
-      {error && <p className="text-sm text-rose-400">{error}</p>}
+      {state.error && <p className="text-sm text-rose-400">{state.error}</p>}
       <button
         type="submit"
         disabled={isPending}
