@@ -1,5 +1,5 @@
 import type { Message } from "@/types";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
 
 type ChatRow = {
   id: string;
@@ -24,14 +24,7 @@ type ChatQueryBuilder = {
   then: <TResult1 = ChatQueryResult, TResult2 = never>(onfulfilled?: ((value: ChatQueryResult) => TResult1 | PromiseLike<TResult1>) | null, onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null) => PromiseLike<TResult1 | TResult2>;
 };
 
-type ChatChannel = {
-  on: (
-    event: string,
-    opts: Record<string, unknown>,
-    callback: (payload: Record<string, unknown> | { new: Record<string, unknown> }) => void
-  ) => ChatChannel;
-  subscribe: () => ChatChannel;
-};
+type ChatChannel = Pick<RealtimeChannel, "on" | "subscribe">;
 
 export async function ensureConversationForRequest(
   supabase: SupabaseClient,
@@ -85,7 +78,9 @@ export async function loadConversationMessages(
 
   if (error) throw error;
 
-  return (data ?? []).map((message: Record<string, unknown>) => ({
+  const rows = (data ?? []) as ChatRow[];
+
+  return rows.map((message) => ({
     id: message.id,
     conversationId: message.conversation_id,
     senderId: message.sender_id,
@@ -142,8 +137,9 @@ export function subscribeToConversationMessages(
         table: "messages",
         filter: `conversation_id=eq.${conversationId}`,
       },
-      (payload: { new: Record<string, unknown> }) => {
-        const message = payload.new as {
+      (payload: Record<string, unknown> | { new: Record<string, unknown> }) => {
+        const eventPayload = payload as { new?: Record<string, unknown> };
+        const message = eventPayload.new as {
           id: string;
           conversation_id: string;
           sender_id: string;
@@ -163,5 +159,5 @@ export function subscribeToConversationMessages(
     .subscribe();
 
 return () => {
-  void supabase.removeChannel(channel);
+  void supabase.removeChannel(channel as unknown as RealtimeChannel);
 };}
