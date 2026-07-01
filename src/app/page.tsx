@@ -1,7 +1,9 @@
 
 import Link from "next/link";
+import { getNewsArticles } from "@/lib/news";
 
-export default function Home() {
+export default async function Home() {
+  const upcomingEvents = (await getNewsArticles()).slice(0, 3);
   return (
     <div>
       <main
@@ -58,10 +60,6 @@ export default function Home() {
         </section>
       </main>
 
-      <section className="py-20 px-6 sm:px-10">
-        <div></div>
-      </section>
-
       <section className="bg-[#242E58] py-18 px-6 sm:px-10">
         <div>
           <p className="text-2xl font-bold text-white text-center">THE MISSION OF LAGOS STATE UNIVERSITY</p>
@@ -83,8 +81,39 @@ export default function Home() {
       </section>
 
       <section className="bg-[#EDEFF8] py-20 px-6 text-black sm:px-10">
-        <div className="">
-          <p className="text-2xl font-bold text-center">Upcoming Events</p>
+        <div className="mx-auto max-w-7xl">
+          <div className="mb-10 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.25em] text-[#242E58]">Upcoming Events</p>
+              <h2 className="text-2xl font-bold text-slate-950">Stay connected with what is coming up</h2>
+            </div>
+            <Link href="/news" className="text-sm font-semibold text-[#242E58] transition hover:text-sky-700">
+              View all news
+            </Link>
+          </div>
+
+          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+            {upcomingEvents.map((event) => (
+              <article key={event.id} className="flex h-full flex-col rounded-3xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-200/70">
+                <div className="flex items-center justify-between">
+                  <span className="rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-[#242E58]">
+                    {event.category}
+                  </span>
+                  <span className="text-sm text-slate-500">
+                    {new Date(event.publishedAt).toLocaleDateString("en-NG", {
+                      day: "numeric",
+                      month: "short",
+                    })}
+                  </span>
+                </div>
+                <h3 className="mt-4 text-xl font-semibold text-slate-950">{event.title}</h3>
+                <p className="mt-3 flex-1 text-sm leading-6 text-slate-600">{event.summary}</p>
+                <Link href={`/news/${event.id}`} className="mt-6 inline-flex text-sm font-semibold text-[#242E58] transition hover:text-sky-700">
+                  Read more →
+                </Link>
+              </article>
+            ))}
+          </div>
         </div>
       </section>
     </div>

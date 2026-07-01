@@ -65,4 +65,5 @@ export interface Message {
   senderId: string;
   content: string;
   createdAt: string;
+  isOptimistic?: boolean;
 }

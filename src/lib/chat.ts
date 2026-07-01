@@ -1,4 +1,5 @@
 import type { Message } from "@/types";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 type ChatRow = {
   id: string;
@@ -24,18 +25,16 @@ type ChatQueryBuilder = {
 };
 
 type ChatChannel = {
-  on: (event: string, options: Record<string, unknown>, callback: (payload: { new: Record<string, unknown> }) => void) => ChatChannel;
+  on: (
+    event: string,
+    opts: Record<string, unknown>,
+    callback: (payload: Record<string, unknown> | { new: Record<string, unknown> }) => void
+  ) => ChatChannel;
   subscribe: () => ChatChannel;
 };
 
-export type ChatSupabaseClient = {
-  from: (table: string) => unknown;
-  channel: (name: string) => unknown;
-  removeChannel: (channel: unknown) => void;
-};
-
 export async function ensureConversationForRequest(
-  supabase: ChatSupabaseClient,
+  supabase: SupabaseClient,
   {
     studentId,
     alumniId,
@@ -75,7 +74,7 @@ export async function ensureConversationForRequest(
 }
 
 export async function loadConversationMessages(
-  supabase: ChatSupabaseClient,
+  supabase: SupabaseClient,
   conversationId: string
 ): Promise<Message[]> {
   const builder = supabase.from("messages") as unknown as ChatQueryBuilder;
@@ -96,7 +95,7 @@ export async function loadConversationMessages(
 }
 
 export async function sendConversationMessage(
-  supabase: ChatSupabaseClient,
+  supabase: SupabaseClient,
   {
     conversationId,
     senderId,
@@ -118,6 +117,7 @@ export async function sendConversationMessage(
     .single();
 
   if (error) throw error;
+  if (!data) throw new Error("Failed to create message");
 
   return {
     id: data.id,
@@ -129,7 +129,7 @@ export async function sendConversationMessage(
 }
 
 export function subscribeToConversationMessages(
-  supabase: ChatSupabaseClient,
+  supabase: SupabaseClient,
   conversationId: string,
   onMessage: (message: Message) => void
 ) {
@@ -162,5 +162,6 @@ export function subscribeToConversationMessages(
     )
     .subscribe();
 
-  return () => supabase.removeChannel(channel);
-}
+return () => {
+  void supabase.removeChannel(channel);
+};}

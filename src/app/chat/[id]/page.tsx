@@ -121,16 +121,39 @@ export default function ChatRoomPage() {
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     const text = input.trim();
-    if (!text || !user || sending) return;
+    if (!text || !user || !conversationId || sending) return;
+
+    const optimisticMessage: Message = {
+      id: `optimistic-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      conversationId,
+      senderId: user.id,
+      content: text,
+      createdAt: new Date().toISOString(),
+      isOptimistic: true,
+    };
+
     setSending(true);
     setInput("");
+    setMessages((prev) => [...prev, optimisticMessage]);
+
     const supabase = createClient();
     try {
-      await sendConversationMessage(supabase, {
+      const persistedMessage = await sendConversationMessage(supabase, {
         conversationId,
         senderId: user.id,
         content: text,
       });
+
+      setMessages((prev) => {
+        const existing = prev.find((item) => item.id === persistedMessage.id);
+        if (existing) {
+          return prev.map((item) => (item.id === optimisticMessage.id ? { ...existing, isOptimistic: false } : item));
+        }
+
+        return prev.map((item) => (item.id === optimisticMessage.id ? { ...persistedMessage, isOptimistic: false } : item));
+      });
+    } catch {
+      setMessages((prev) => prev.filter((item) => item.id !== optimisticMessage.id));
     } finally {
       setSending(false);
     }

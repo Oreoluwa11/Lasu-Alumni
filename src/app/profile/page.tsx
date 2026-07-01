@@ -47,6 +47,11 @@ export default function ProfilePage() {
                 <div>
                   <h1 className="text-2xl font-semibold sm:text-3xl">{user?.fullName}</h1>
                   <p className="mt-1 text-sm text-slate-400">{user?.email}</p>
+                  {user?.status && (
+                    <p className="mt-2 inline-flex rounded-full bg-sky-500/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-sky-300">
+                      {user.status}
+                    </p>
+                  )}
                 </div>
               </div>
               <Link
